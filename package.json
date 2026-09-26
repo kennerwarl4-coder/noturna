@@ -1,0 +1,16 @@
+{
+  "name": "noturna-loja",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Loja Noturna com checkout Pix via SigiloPay",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js"
+  },
+  "engines": {
+    "node": ">=22.9"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

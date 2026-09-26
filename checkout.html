@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Finalizar compra | Noturna</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#222222">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&display=swap" rel="stylesheet">
+
+  <!--
+    CHECKOUT NOTURNA
+    O Pix é gerado pela SigiloPay através do server.js (POST /api/pix).
+    As chaves da SigiloPay ficam só no servidor (.env), nunca nesta página.
+    Precisa ser aberto pelo servidor (npm start), não direto pelo arquivo.
+  -->
+
+  <style>
+    /* =========================================================
+       VARIÁVEIS (mesmas da página de produto)
+       ========================================================= */
+    :root {
+      --color-black: #222222;
+      --color-white: #FFFFFF;
+      --color-champagne: #D9C4A3;
+      --color-cream: #F4EEE6;
+      --gray-text: #595959;
+      --gray-line: #E3DACD;
+      --color-success: #1A7F37;
+      --color-error: #B42318;
+
+      --bg: var(--color-cream);
+      --fg: var(--color-black);
+      --muted: var(--gray-text);
+      --line: var(--gray-line);
+      --focus: var(--color-black);
+
+      --font-brand: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --radius: 20px;
+      --radius-sm: 12px;
+      --radius-pill: 999px;
+      --gutter: 16px;
+      --max: 1080px;
+    }
+    @media (min-width: 768px) { :root { --gutter: 32px; } }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-brand);
+      font-size: 1rem;
+      line-height: 1.5;
+      overflow-x: clip;
+    }
+    h1, h2, h3, p, ol, ul, dl, dd, figure { margin: 0; }
+    img, svg { display: block; max-width: 100%; }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-underline-offset: 3px; }
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+    /* Títulos recebem foco via script (para leitores de tela), sem contorno visual */
+    [tabindex="-1"]:focus { outline: none; }
+    .sr-only {
+      position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    .container { width: 100%; max-width: var(--max); margin-inline: auto; padding-inline: var(--gutter); }
+
+    /* =========================================================
+       HEADER
+       ========================================================= */
+    .co-header { background: var(--color-white); border-bottom: 1px solid var(--line); }
+    .co-header .container { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .co-header .logo img { height: 28px; width: auto; }
+    .secure { display: inline-flex; align-items: center; gap: 6px; color: var(--color-success); font-size: .875rem; font-weight: 600; }
+    .secure svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* =========================================================
+       LAYOUT
+       ========================================================= */
+    .co-main { padding-block: 24px 64px; }
+    .co-grid { display: grid; gap: 20px; }
+    @media (min-width: 900px) {
+      .co-main { padding-top: 40px; }
+      .co-grid { grid-template-columns: 1fr 340px; gap: 32px; align-items: start; }
+      .summary { position: sticky; top: 24px; }
+    }
+    /* No celular, o resumo aparece antes das etapas, recolhido */
+    .sum-toggle { display: none; }
+    @media (max-width: 899px) {
+      .summary { order: -1; padding: 0; }
+      .summary > h2 { display: none; }
+      .sum-toggle {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        width: 100%; padding: 16px 20px;
+        background: none; border: 0; border-radius: var(--radius);
+        font-size: .9375rem; font-weight: 600; text-align: left;
+      }
+      .sum-toggle .chev { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+      .sum-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+      .sum-toggle strong { margin-left: auto; font-size: 1.0625rem; }
+      .sum-content { padding: 0 20px 20px; }
+      .sum-content .sum-item { margin-top: 0; }
+    }
+
+    .back { display: inline-flex; align-items: center; gap: 6px; font-size: .875rem; color: var(--muted); text-decoration: none; margin-bottom: 12px; }
+    .back:hover { color: var(--fg); text-decoration: underline; }
+    .co-title { font-size: clamp(1.625rem, 1.3rem + 1.2vw, 2rem); letter-spacing: -0.02em; line-height: 1.15; }
+
+    /* =========================================================
+       STEPPER
+       ========================================================= */
+    .stepper {
+      --progress: 0; /* 0, .5 ou 1 (definido via JS) */
+      position: relative;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      list-style: none; padding: 0; margin: 20px 0 20px;
+    }
+    /* Trilho e progresso passando pelo centro das bolinhas */
+    .stepper::before, .stepper::after {
+      content: ""; position: absolute; top: 15px; left: 16px; height: 1.5px;
+    }
+    .stepper::before { right: 16px; background: var(--line); }
+    .stepper::after { width: calc((100% - 32px) * var(--progress)); background: var(--fg); transition: width .3s; }
+    .stepper li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .8125rem; color: var(--muted); }
+    .stepper li:first-child { align-items: flex-start; }
+    .stepper li:last-child { align-items: flex-end; }
+    .stepper .dot {
+      position: relative; z-index: 1;
+      display: grid; place-items: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--color-white); border: 1.5px solid var(--line);
+      box-shadow: 0 0 0 6px var(--bg); /* respiro entre a bolinha e a linha */
+      font-size: .8125rem; font-weight: 700;
+    }
+    .stepper li.is-done .dot { background: var(--fg); border-color: var(--fg); color: var(--color-white); }
+    .stepper li.is-current .dot { background: var(--color-champagne); border-color: var(--color-champagne); color: var(--fg); }
+    .stepper li.is-current, .stepper li.is-done { color: var(--fg); font-weight: 600; }
+
+    /* =========================================================
+       ETAPAS
+       ========================================================= */
+    .steps { display: grid; gap: 12px; }
+    .step {
+      background: var(--color-white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .step-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; }
+    .step-head h2 { display: flex; align-items: center; gap: 12px; font-size: 1.0625rem; letter-spacing: -0.01em; }
+    .step-num {
+      display: grid; place-items: center; flex: none;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--fg); color: var(--color-white);
+      font-size: .75rem; font-weight: 700;
+    }
+    .step[data-state="open"] .step-head { border-bottom: 1px solid var(--line); }
+    .step[data-state="locked"] { background: transparent; }
+    .step[data-state="locked"] .step-head h2 { color: var(--muted); }
+    .step[data-state="locked"] .step-num { background: #8C8C8C; }
+    .step[data-state="done"] .step-num { background: var(--color-champagne); color: var(--fg); }
+
+    .edit-btn {
+      background: none; border: 0; padding: 6px 4px;
+      font-size: .8125rem; font-weight: 600; text-decoration: underline; text-underline-offset: 3px;
+    }
+    .step-summary { padding: 0 20px 18px 58px; font-size: .9375rem; }
+    .step-summary p + p { color: var(--muted); font-size: .875rem; }
+
+    .step-body { padding: 20px; display: grid; gap: 16px; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Campos */
+    .field { display: grid; gap: 6px; min-width: 0; }
+    .field label { font-size: .8125rem; font-weight: 600; }
+    .field .opt { font-weight: 400; color: var(--muted); }
+    .field input, .field select {
+      width: 100%; min-height: 48px; padding: 0 16px;
+      background: var(--color-white);
+      border: 1px solid #CFC5B6; border-radius: var(--radius-sm);
+      font-size: 1rem; /* 16px evita zoom automático no iPhone */
+    }
+    .field input::placeholder { color: #8A8A8A; }
+    .field input:hover, .field select:hover { border-color: var(--fg); }
+    .field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--fg); outline-offset: 0; border-color: var(--fg); border-radius: var(--radius-sm); }
+    .field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--color-error); border-width: 1.5px; }
+    .field-err { font-size: .8125rem; color: var(--color-error); font-weight: 500; }
+    .field-err:empty { display: none; }
+    .field-hint { font-size: .8125rem; color: var(--muted); }
+
+    .note { display: flex; align-items: center; gap: 8px; font-size: .8125rem; color: var(--muted); }
+    .note svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .note strong { color: var(--color-success); }
+
+    /* Botão principal */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; min-height: 52px; padding: 0 24px;
+      background: var(--fg); color: var(--color-white);
+      border: 1.5px solid var(--fg); border-radius: var(--radius-pill);
+      font-weight: 600; font-size: 1rem; text-decoration: none;
+      transition: background-color .2s, color .2s;
+    }
+    .btn:hover { background: var(--color-white); color: var(--fg); }
+    .btn-ghost { background: transparent; color: var(--fg); }
+    .btn-ghost:hover { background: var(--fg); color: var(--color-white); }
+    .btn:focus-visible { border-radius: var(--radius-pill); }
+
+    /* Formas de pagamento */
+    .pay-options { display: grid; gap: 10px; border: 0; padding: 0; margin: 0; }
+    .pay-options legend { font-size: .8125rem; font-weight: 600; margin-bottom: 8px; padding: 0; }
+    .pay-option {
+      position: relative;
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 18px;
+      border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--color-white);
+      cursor: pointer;
+    }
+    .pay-option input { width: 20px; height: 20px; margin: 0; accent-color: var(--fg); flex: none; }
+    .pay-option:has(input:checked) { border-color: var(--color-champagne); background: var(--color-cream); }
+    .pay-option:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .pay-option:has(input:disabled) { cursor: not-allowed; opacity: .55; }
+    .pay-icon { width: 28px; height: 28px; flex: none; }
+    .pay-title { font-weight: 600; font-size: .9375rem; }
+    .pay-desc { font-size: .8125rem; color: var(--muted); }
+    .tag {
+      margin-left: auto; flex: none;
+      padding: 3px 10px; border-radius: var(--radius-pill);
+      background: var(--color-champagne); color: var(--fg);
+      font-size: .75rem; font-weight: 600;
+    }
+
+    /* =========================================================
+       RESUMO DO PEDIDO
+       ========================================================= */
+    .summary {
+      background: var(--color-white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .summary h2 { font-size: .875rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+    .sum-item { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; margin-top: 14px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .sum-item img { width: 64px; height: 64px; border-radius: var(--radius-sm); object-fit: cover; background: var(--color-cream); }
+    .sum-item .name { font-weight: 600; font-size: .9375rem; line-height: 1.3; }
+    .sum-item .qty { font-size: .8125rem; color: var(--muted); margin-top: 2px; }
+    .sum-item .price { font-weight: 700; font-size: .9375rem; white-space: nowrap; }
+
+    .sum-rows { display: grid; gap: 8px; padding-block: 16px; border-bottom: 1px solid var(--line); font-size: .875rem; }
+    .sum-rows div { display: flex; justify-content: space-between; gap: 12px; }
+    .sum-rows dt { color: var(--muted); }
+    .sum-rows .free { color: var(--color-success); font-weight: 700; }
+    .sum-rows .discount { color: var(--color-success); }
+
+    .sum-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 16px; }
+    .sum-total dt { font-size: 1.0625rem; font-weight: 600; }
+    .sum-total dd { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.02em; }
+    .sum-note { margin-top: 4px; font-size: .8125rem; color: var(--muted); }
+    .sum-note strong { color: var(--fg); font-weight: 600; }
+    .sum-safe { display: flex; align-items: center; gap: 6px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--color-success); font-size: .8125rem; font-weight: 600; }
+    .sum-safe svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* =========================================================
+       PEDIDO CONFIRMADO
+       ========================================================= */
+    .done {
+      background: var(--color-white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      text-align: center;
+    }
+    .done-icon { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: var(--color-champagne); display: grid; place-items: center; }
+    .done-icon svg { width: 28px; height: 28px; fill: none; stroke: var(--fg); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .done h2 { font-size: 1.5rem; letter-spacing: -0.02em; }
+    .done > p { margin-top: 8px; color: var(--muted); }
+    .pix-box {
+      display: grid; gap: 14px; justify-items: center;
+      margin-top: 24px; padding: 20px;
+      border-radius: var(--radius-sm); background: var(--color-cream);
+    }
+    .qr-img {
+      width: 232px; height: 232px; padding: 8px;
+      background: var(--color-white); border-radius: var(--radius-sm);
+    }
+    .pix-amount { font-size: 1.25rem; font-weight: 700; }
+    .pix-box .btn { max-width: 320px; }
+    .pix-code-field { width: 100%; max-width: 420px; text-align: left; }
+    .pix-code-field input { font-size: .8125rem; color: var(--muted); text-overflow: ellipsis; }
+
+    /* Status do pagamento */
+    .pay-status { display: inline-flex; align-items: center; gap: 10px; font-size: .9375rem; font-weight: 600; }
+    .spinner {
+      width: 16px; height: 16px; flex: none;
+      border: 2px solid var(--color-champagne); border-top-color: var(--fg); border-radius: 50%;
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--color-champagne); } }
+    .pay-error { margin-top: -4px; }
+    .btn:disabled { opacity: .7; cursor: wait; }
+    .btn:disabled:hover { background: var(--fg); color: var(--color-white); }
+    .done-steps { margin-top: 24px; text-align: left; display: grid; gap: 8px; font-size: .9375rem; padding-left: 20px; }
+    .done .btn-ghost { margin-top: 24px; max-width: 320px; }
+
+    /* =========================================================
+       RODAPÉ
+       ========================================================= */
+    .co-footer { border-top: 1px solid var(--line); padding-block: 24px 32px; font-size: .75rem; color: var(--muted); text-align: center; }
+    .co-footer p + p { margin-top: 4px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="co-header">
+    <div class="container">
+      <a class="logo" href="index.html" aria-label="Noturna, voltar para a loja">
+        <img src="assets/logo-noturna.png" alt="Noturna" width="1428" height="350">
+      </a>
+      <span class="secure">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        Ambiente seguro
+      </span>
+    </div>
+  </header>
+
+  <main class="container co-main">
+    <div class="co-grid">
+
+      <!-- ===================== ETAPAS ===================== -->
+      <div class="co-flow">
+        <a class="back" href="index.html">← Voltar para a loja</a>
+        <h1 class="co-title" id="co-title">Finalizar compra</h1>
+
+        <ol class="stepper" aria-label="Etapas da compra">
+          <li data-step-dot="1" class="is-current"><span class="dot">1</span>Identificação</li>
+          <li data-step-dot="2"><span class="dot">2</span>Entrega</li>
+          <li data-step-dot="3"><span class="dot">3</span>Pagamento</li>
+        </ol>
+
+        <div class="steps" id="steps">
+
+          <!-- 1. IDENTIFICAÇÃO -->
+          <section class="step" data-step="1" data-state="open" aria-labelledby="h-step-1">
+            <div class="step-head">
+              <h2 id="h-step-1" tabindex="-1"><span class="step-num" aria-hidden="true">1</span>Identificação</h2>
+              <button class="edit-btn" type="button" data-edit="1" hidden>Editar<span class="sr-only"> identificação</span></button>
+            </div>
+            <div class="step-summary" data-summary="1" hidden></div>
+
+            <form class="step-body" data-form="1" novalidate>
+              <div class="field">
+                <label for="nome">Nome completo</label>
+                <input id="nome" name="nome" autocomplete="name" placeholder="Seu nome completo" required aria-describedby="nome-err">
+                <p class="field-err" id="nome-err"></p>
+              </div>
+              <div class="field">
+                <label for="email">E-mail</label>
+                <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@email.com" required aria-describedby="email-err">
+                <p class="field-err" id="email-err"></p>
+              </div>
+              <div class="field">
+                <label for="whats">WhatsApp</label>
+                <input id="whats" name="whats" type="tel" autocomplete="tel-national" inputmode="numeric" placeholder="(41) 91234-5678" required aria-describedby="whats-err" data-mask="phone">
+                <p class="field-err" id="whats-err"></p>
+              </div>
+              <div class="field">
+                <label for="cpf">CPF</label>
+                <input id="cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" required aria-describedby="cpf-hint cpf-err" data-mask="cpf">
+                <p class="field-hint" id="cpf-hint">Usado só para emitir a nota fiscal.</p>
+                <p class="field-err" id="cpf-err"></p>
+              </div>
+              <button class="btn" type="submit">Ir para entrega</button>
+            </form>
+          </section>
+
+          <!-- 2. ENTREGA -->
+          <section class="step" data-step="2" data-state="locked" aria-labelledby="h-step-2">
+            <div class="step-head">
+              <h2 id="h-step-2" tabindex="-1"><span class="step-num" aria-hidden="true">2</span>Entrega</h2>
+              <button class="edit-btn" type="button" data-edit="2" hidden>Editar<span class="sr-only"> entrega</span></button>
+            </div>
+            <div class="step-summary" data-summary="2" hidden></div>
+
+            <form class="step-body" data-form="2" novalidate hidden>
+              <div class="field">
+                <label for="cep">CEP</label>
+                <input id="cep" name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" required aria-describedby="cep-err" data-mask="cep">
+                <p class="field-err" id="cep-err" aria-live="polite"></p>
+              </div>
+              <div class="field">
+                <label for="rua">Endereço</label>
+                <input id="rua" name="rua" autocomplete="address-line1" placeholder="Rua, avenida..." required aria-describedby="rua-err">
+                <p class="field-err" id="rua-err"></p>
+              </div>
+              <div class="row-2">
+                <div class="field">
+                  <label for="numero">Número</label>
+                  <input id="numero" name="numero" inputmode="numeric" placeholder="123" required aria-describedby="numero-err">
+                  <p class="field-err" id="numero-err"></p>
+                </div>
+                <div class="field">
+                  <label for="comp">Complemento <span class="opt">(opcional)</span></label>
+                  <input id="comp" name="comp" autocomplete="address-line2" placeholder="Apto, bloco">
+                </div>
+              </div>
+              <div class="field">
+                <label for="bairro">Bairro</label>
+                <input id="bairro" name="bairro" placeholder="Seu bairro" required aria-describedby="bairro-err">
+                <p class="field-err" id="bairro-err"></p>
+              </div>
+              <div class="row-2">
+                <div class="field">
+                  <label for="cidade">Cidade</label>
+                  <input id="cidade" name="cidade" autocomplete="address-level2" placeholder="Sua cidade" required aria-describedby="cidade-err">
+                  <p class="field-err" id="cidade-err"></p>
+                </div>
+                <div class="field">
+                  <label for="uf">UF</label>
+                  <select id="uf" name="uf" autocomplete="address-level1" required aria-describedby="uf-err">
+                    <option value="">--</option>
+                    <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+                    <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+                    <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+                    <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                    <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
+                    <option>SE</option><option>TO</option>
+                  </select>
+                  <p class="field-err" id="uf-err"></p>
+                </div>
+              </div>
+              <p class="note">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>
+                <span><strong>Frete grátis</strong> para todo o Brasil</span>
+              </p>
+              <button class="btn" type="submit">Ir para pagamento</button>
+            </form>
+          </section>
+
+          <!-- 3. PAGAMENTO -->
+          <section class="step" data-step="3" data-state="locked" aria-labelledby="h-step-3">
+            <div class="step-head">
+              <h2 id="h-step-3" tabindex="-1"><span class="step-num" aria-hidden="true">3</span>Pagamento</h2>
+            </div>
+
+            <form class="step-body" data-form="3" novalidate hidden>
+              <fieldset class="pay-options">
+                <legend>Como você quer pagar?</legend>
+                <label class="pay-option">
+                  <input type="radio" name="pagamento" value="pix" checked>
+                  <svg class="pay-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2.5l9.5 9.5-9.5 9.5L2.5 12z" fill="none" stroke="#32BCAD" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M12 7.5l4.5 4.5-4.5 4.5L7.5 12z" fill="#32BCAD"/>
+                  </svg>
+                  <span>
+                    <span class="pay-title">Pagamento via Pix</span><br>
+                    <span class="pay-desc">Aprovação imediata · 5% de desconto</span>
+                  </span>
+                </label>
+                <!-- Cartão: habilitar quando o gateway estiver integrado.
+                     Atenção: a página de produto anuncia 4x sem juros. -->
+                <label class="pay-option">
+                  <input type="radio" name="pagamento" value="cartao" disabled>
+                  <svg class="pay-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                    <rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/>
+                  </svg>
+                  <span>
+                    <span class="pay-title">Cartão de crédito</span><br>
+                    <span class="pay-desc">Até 4x sem juros</span>
+                  </span>
+                  <span class="tag">Em breve</span>
+                </label>
+              </fieldset>
+              <p class="field-err pay-error" id="pay-err" role="alert"></p>
+              <button class="btn" type="submit" id="pay-btn">Confirmar pedido</button>
+            </form>
+          </section>
+        </div>
+
+        <!-- PEDIDO CONFIRMADO -->
+        <section class="done" id="done" hidden aria-labelledby="done-title">
+          <div class="done-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <h2 id="done-title" tabindex="-1">Tudo certo, <span data-first-name></span>!</h2>
+          <p id="done-lede">Agora é só pagar o Pix para confirmar. Os detalhes também vão para <strong data-done-email></strong>.</p>
+
+          <!-- QR Code e copia e cola gerados pela SigiloPay (via server.js) -->
+          <div class="pix-box" id="pix-box">
+            <img class="qr-img" id="pix-qr" width="232" height="232" alt="QR Code do Pix para pagar o pedido">
+            <p>Valor: <span class="pix-amount" data-pix-amount></span></p>
+            <div class="field pix-code-field">
+              <label for="pix-code">Pix copia e cola</label>
+              <input id="pix-code" readonly>
+            </div>
+            <button class="btn" type="button" id="copy-pix">Copiar código Pix</button>
+            <p class="field-hint" id="copy-msg" role="status" aria-live="polite"></p>
+            <p class="pay-status" id="pay-status" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><span>Aguardando pagamento…</span></p>
+          </div>
+
+          <ol class="done-steps" id="done-steps">
+            <li>Abra o app do seu banco e escolha pagar com Pix.</li>
+            <li>Escaneie o QR Code ou cole o código.</li>
+            <li>Pronto: seu ritual sai em até 2 dias úteis após a confirmação.</li>
+          </ol>
+
+          <a class="btn btn-ghost" href="index.html">Voltar para a loja</a>
+        </section>
+      </div>
+
+      <!-- ===================== RESUMO ===================== -->
+      <aside class="summary" aria-labelledby="sum-title">
+        <h2 id="sum-title">Resumo do pedido</h2>
+        <!-- Só aparece no celular -->
+        <button class="sum-toggle" type="button" aria-expanded="false" aria-controls="sum-content">
+          <span>Ver resumo do pedido</span>
+          <strong data-total></strong>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="sum-content" id="sum-content">
+        <div class="sum-item">
+          <img src="assets/produto/kit-ritual-da-noite-thumb.jpg" width="320" height="320" alt="">
+          <div>
+            <p class="name">Kit Ritual da Noite</p>
+            <p class="qty">Qtd: <span data-qty>1</span></p>
+          </div>
+          <p class="price" data-subtotal-item></p>
+        </div>
+
+        <dl class="sum-rows">
+          <div><dt>Subtotal</dt><dd data-subtotal></dd></div>
+          <div><dt>Frete</dt><dd class="free">Grátis</dd></div>
+          <div><dt>Desconto Pix (5%)</dt><dd class="discount" data-discount></dd></div>
+        </dl>
+
+        <dl class="sum-total">
+          <dt>Total</dt>
+          <dd data-total></dd>
+        </dl>
+        <p class="sum-note"><strong>Pix com 5% de desconto aplicado</strong></p>
+
+        <p class="sum-safe">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+          Compra 100% segura
+        </p>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="co-footer">
+    <p>Noturna &amp; Cachos LTDA · CNPJ 48.273.423/0001-01 · Curitiba - PR</p>
+    <p>7 dias para desistir · 90 dias de garantia</p>
+  </footer>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ---------------------------------------------------------
+      // Pedido (na plataforma, vem do carrinho)
+      // ---------------------------------------------------------
+      var PRICE = 47.90;
+      var PIX_DISCOUNT = 0.05;
+      var brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+      var params = new URLSearchParams(window.location.search);
+      var qty = Math.min(10, Math.max(1, parseInt(params.get('qtd'), 10) || 1));
+
+      // Contas em centavos inteiros para evitar erro de ponto flutuante.
+      // Total Pix = subtotal × 0,95 arredondado (R$ 47,90 → R$ 45,51, igual à página do produto).
+      var subCents = Math.round(PRICE * 100) * qty;
+      var totalCents = Math.round(subCents * (1 - PIX_DISCOUNT));
+      var subtotal = subCents / 100;
+      var discount = (subCents - totalCents) / 100;
+      var total = totalCents / 100;
+
+      function fill(sel, text) {
+        document.querySelectorAll(sel).forEach(function (el) { el.textContent = text; });
+      }
+      fill('[data-qty]', qty);
+      fill('[data-subtotal-item]', brl.format(subtotal));
+      fill('[data-subtotal]', brl.format(subtotal));
+      fill('[data-discount]', '−' + brl.format(discount));
+      fill('[data-total]', brl.format(total));
+      fill('[data-pix-amount]', brl.format(total));
+
+      // ---------------------------------------------------------
+      // Resumo recolhível no celular
+      // ---------------------------------------------------------
+      var sumToggle = document.querySelector('.sum-toggle');
+      var sumContent = document.getElementById('sum-content');
+      var mobile = window.matchMedia('(max-width: 899px)');
+      function syncSummary() {
+        var open = !mobile.matches || sumToggle.getAttribute('aria-expanded') === 'true';
+        sumContent.hidden = !open;
+      }
+      sumToggle.addEventListener('click', function () {
+        var open = sumToggle.getAttribute('aria-expanded') !== 'true';
+        sumToggle.setAttribute('aria-expanded', String(open));
+        sumToggle.querySelector('span').textContent = open ? 'Ocultar resumo do pedido' : 'Ver resumo do pedido';
+        syncSummary();
+      });
+      mobile.addEventListener('change', syncSummary);
+      syncSummary();
+
+      // ---------------------------------------------------------
+      // Máscaras
+      // ---------------------------------------------------------
+      var masks = {
+        cpf: function (d) {
+          d = d.slice(0, 11);
+          return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        },
+        phone: function (d) {
+          d = d.slice(0, 11);
+          if (d.length <= 2) return d.length ? '(' + d : '';
+          if (d.length <= 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+          if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+          return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+        },
+        cep: function (d) {
+          d = d.slice(0, 8);
+          return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
+        }
+      };
+      document.querySelectorAll('[data-mask]').forEach(function (input) {
+        input.addEventListener('input', function () {
+          input.value = masks[input.dataset.mask](input.value.replace(/\D/g, ''));
+        });
+      });
+
+      // ---------------------------------------------------------
+      // Validações
+      // ---------------------------------------------------------
+      function digits(v) { return v.replace(/\D/g, ''); }
+
+      function validCPF(v) {
+        var c = digits(v);
+        if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+        for (var t = 9; t < 11; t++) {
+          var s = 0;
+          for (var i = 0; i < t; i++) s += Number(c[i]) * (t + 1 - i);
+          if (((10 * s) % 11) % 10 !== Number(c[t])) return false;
+        }
+        return true;
+      }
+
+      var rules = {
+        nome: function (v) { return v.trim().split(/\s+/).length >= 2 ? '' : 'Digite nome e sobrenome.'; },
+        email: function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Confira o e-mail, parece incompleto.'; },
+        whats: function (v) { var d = digits(v); return d.length === 10 || d.length === 11 ? '' : 'Digite o WhatsApp com DDD.'; },
+        cpf: function (v) { return validCPF(v) ? '' : 'CPF inválido. Confere os números?'; },
+        cep: function (v) { return digits(v).length === 8 ? '' : 'Digite os 8 números do CEP.'; },
+        rua: function (v) { return v.trim() ? '' : 'Informe o endereço.'; },
+        numero: function (v) { return v.trim() ? '' : 'Informe o número (ou "S/N").'; },
+        bairro: function (v) { return v.trim() ? '' : 'Informe o bairro.'; },
+        cidade: function (v) { return v.trim() ? '' : 'Informe a cidade.'; },
+        uf: function (v) { return v ? '' : 'Escolha o estado.'; }
+      };
+
+      function setError(input, msg) {
+        var err = document.getElementById(input.id + '-err');
+        if (msg) input.setAttribute('aria-invalid', 'true');
+        else input.removeAttribute('aria-invalid');
+        if (err) err.textContent = msg;
+      }
+
+      function validateForm(form) {
+        var firstInvalid = null;
+        form.querySelectorAll('input, select').forEach(function (input) {
+          var rule = rules[input.name];
+          if (!rule) return;
+          var msg = rule(input.value);
+          setError(input, msg);
+          if (msg && !firstInvalid) firstInvalid = input;
+        });
+        if (firstInvalid) firstInvalid.focus();
+        return !firstInvalid;
+      }
+
+      // Limpa o erro assim que o campo fica válido
+      document.querySelectorAll('input, select').forEach(function (input) {
+        var ev = input.tagName === 'SELECT' ? 'change' : 'input';
+        input.addEventListener(ev, function () {
+          if (input.getAttribute('aria-invalid') === 'true' && rules[input.name] && !rules[input.name](input.value)) {
+            setError(input, '');
+          }
+        });
+      });
+
+      // ---------------------------------------------------------
+      // Busca de endereço pelo CEP (ViaCEP, serviço público gratuito)
+      // ---------------------------------------------------------
+      var cepInput = document.getElementById('cep');
+      var lastCep = '';
+      cepInput.addEventListener('input', function () {
+        var cep = digits(cepInput.value);
+        if (cep.length !== 8 || cep === lastCep) return;
+        lastCep = cep;
+        fetch('https://viacep.com.br/ws/' + cep + '/json/')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.erro) { setError(cepInput, 'CEP não encontrado. Preencha o endereço abaixo.'); return; }
+            setError(cepInput, '');
+            var map = { rua: data.logradouro, bairro: data.bairro, cidade: data.localidade, uf: data.uf };
+            Object.keys(map).forEach(function (id) {
+              var el = document.getElementById(id);
+              if (map[id]) { el.value = map[id]; setError(el, ''); }
+            });
+            document.getElementById(data.logradouro ? 'numero' : 'rua').focus();
+          })
+          .catch(function () { /* sem internet ou serviço fora: a cliente preenche à mão */ });
+      });
+
+      // ---------------------------------------------------------
+      // Navegação entre etapas
+      // ---------------------------------------------------------
+      var sections = {};
+      document.querySelectorAll('[data-step]').forEach(function (s) { sections[s.dataset.step] = s; });
+
+      function setState(n, state) {
+        var s = sections[n];
+        s.dataset.state = state;
+        var form = s.querySelector('[data-form]');
+        var summary = s.querySelector('[data-summary]');
+        var edit = s.querySelector('[data-edit]');
+        form.hidden = state !== 'open';
+        if (summary) summary.hidden = state !== 'done';
+        if (edit) edit.hidden = state !== 'done';
+
+        var dot = document.querySelector('[data-step-dot="' + n + '"]');
+        dot.classList.toggle('is-done', state === 'done');
+        dot.classList.toggle('is-current', state === 'open');
+        if (state === 'open') dot.setAttribute('aria-current', 'step');
+        else dot.removeAttribute('aria-current');
+      }
+
+      function openStep(n) {
+        [1, 2, 3].forEach(function (i) {
+          if (i < n) setState(i, 'done');
+          else if (i === n) setState(i, 'open');
+          else setState(i, 'locked');
+        });
+        document.querySelector('.stepper').style.setProperty('--progress', (n - 1) / 2);
+        var h = document.getElementById('h-step-' + n);
+        h.focus({ preventScroll: true });
+        sections[n].scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
+
+      function val(id) { return document.getElementById(id).value.trim(); }
+      function esc(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+      function writeSummary(n) {
+        var box = sections[n].querySelector('[data-summary]');
+        if (n === 1) {
+          box.innerHTML = '<p>' + esc(val('nome')) + '</p><p>' + esc(val('email')) + '</p>';
+        } else if (n === 2) {
+          var comp = val('comp') ? ', ' + val('comp') : '';
+          box.innerHTML = '<p>' + esc(val('rua') + ', ' + val('numero') + comp) + '</p>' +
+            '<p>' + esc(val('bairro') + ' · ' + val('cidade') + '/' + val('uf')) + ' · Frete grátis</p>';
+        }
+      }
+
+      document.querySelectorAll('[data-form]').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var n = Number(form.dataset.form);
+          if (n < 3) {
+            if (!validateForm(form)) return;
+            writeSummary(n);
+            openStep(n + 1);
+          } else {
+            confirmOrder();
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () { openStep(Number(btn.dataset.edit)); });
+      });
+
+      // ---------------------------------------------------------
+      // Confirmação: cria a cobrança Pix no servidor (server.js → SigiloPay)
+      // ---------------------------------------------------------
+      var pixCode = '';
+      var payBtn = document.getElementById('pay-btn');
+      var payErr = document.getElementById('pay-err');
+      var ERRO_PADRAO = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.';
+
+      function confirmOrder() {
+        payErr.textContent = '';
+        if (location.protocol === 'file:') {
+          payErr.textContent = 'Para gerar o Pix, abra a loja pelo servidor (npm start) e não pelo arquivo direto.';
+          return;
+        }
+        payBtn.disabled = true;
+        payBtn.textContent = 'Gerando seu Pix…';
+
+        fetch('/api/pix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            qtd: qty,
+            cliente: { nome: val('nome'), email: val('email'), whats: val('whats'), cpf: val('cpf') },
+            entrega: { cep: val('cep'), rua: val('rua'), numero: val('numero'), comp: val('comp'), bairro: val('bairro'), cidade: val('cidade'), uf: val('uf') }
+          })
+        })
+          .then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (d) {
+              if (!r.ok || !d.pix) throw new Error(d.erro || ERRO_PADRAO);
+              return d;
+            });
+          })
+          .then(showPix)
+          .catch(function (e) {
+            payErr.textContent = e instanceof TypeError ? 'Sem conexão com a loja. Confira sua internet e tente de novo.' : e.message;
+            payBtn.disabled = false;
+            payBtn.textContent = 'Confirmar pedido';
+          });
+      }
+
+      function showPix(d) {
+        pixCode = d.pix.copiaECola;
+        document.getElementById('pix-qr').src = d.pix.qrCode;
+        document.getElementById('pix-code').value = pixCode;
+        fill('[data-pix-amount]', brl.format(d.total)); // valor definido pelo servidor
+        showDone();
+        waitForPayment(d.pedido);
+      }
+
+      // Pergunta ao NOSSO servidor (que recebe o webhook) se o pedido já foi pago.
+      // A SigiloPay bloqueia consultas repetidas direto na API dela.
+      function waitForPayment(id) {
+        var started = Date.now();
+        function tick() {
+          if (Date.now() - started > 30 * 60 * 1000) {
+            setPayStatus('Não recebemos a confirmação ainda. Se você já pagou, não se preocupe: avisaremos por e-mail.', false);
+            return;
+          }
+          fetch('/api/pedido/' + encodeURIComponent(id), { cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (s) {
+              if (s.status === 'PAGO') paid();
+              else if (s.status === 'FALHOU') setPayStatus('Este Pix expirou ou foi cancelado. Volte à loja para gerar um novo.', false);
+              else setTimeout(tick, 5000);
+            })
+            .catch(function () { setTimeout(tick, 8000); });
+        }
+        setTimeout(tick, 5000);
+      }
+
+      function setPayStatus(text, loading) {
+        var el = document.getElementById('pay-status');
+        el.querySelector('.spinner').hidden = !loading;
+        el.lastElementChild.textContent = text;
+      }
+
+      function paid() {
+        var first = val('nome').split(/\s+/)[0];
+        document.getElementById('co-title').textContent = 'Pagamento confirmado';
+        document.getElementById('done-title').textContent = 'Pagamento confirmado, ' + first + '!';
+        document.getElementById('done-lede').textContent = 'Seu Kit Ritual da Noite já está sendo preparado e sai em até 2 dias úteis. O código de rastreio vai para o seu e-mail.';
+        document.getElementById('pix-box').hidden = true;
+        document.getElementById('done-steps').hidden = true;
+        document.getElementById('done-title').focus({ preventScroll: true });
+      }
+
+      function showDone() {
+        document.getElementById('steps').hidden = true;
+        document.querySelector('.stepper').hidden = true;
+        document.getElementById('co-title').textContent = 'Pedido recebido';
+        fill('[data-first-name]', val('nome').split(/\s+/)[0]);
+        fill('[data-done-email]', val('email'));
+        var done = document.getElementById('done');
+        done.hidden = false;
+        document.getElementById('done-title').focus({ preventScroll: true });
+        // Volta ao topo; 'instant' interrompe qualquer rolagem suave em andamento
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+
+      document.getElementById('copy-pix').addEventListener('click', function () {
+        var msg = document.getElementById('copy-msg');
+        if (!pixCode) return;
+        var input = document.getElementById('pix-code');
+        var done = function () { msg.textContent = 'Código copiado! Cole no app do seu banco.'; };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(pixCode).then(done, function () { input.select(); document.execCommand('copy'); done(); });
+        } else {
+          input.select(); document.execCommand('copy'); done();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
