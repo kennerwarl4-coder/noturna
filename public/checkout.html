@@ -499,6 +499,7 @@
           <div class="pix-box" id="pix-box">
             <img class="qr-img" id="pix-qr" width="232" height="232" alt="QR Code do Pix para pagar o pedido">
             <p>Valor: <span class="pix-amount" data-pix-amount></span></p>
+            <p class="field-hint" id="pix-expira" hidden></p>
             <div class="field pix-code-field">
               <label for="pix-code">Pix copia e cola</label>
               <input id="pix-code" readonly>
@@ -834,24 +835,39 @@
         document.getElementById('pix-qr').src = d.pix.qrCode;
         document.getElementById('pix-code').value = pixCode;
         fill('[data-pix-amount]', brl.format(d.total)); // valor definido pelo servidor
+
+        // Validade do Pix informada pela SigiloPay (pix.expiresAt)
+        var expira = d.pix.expiraEm ? new Date(d.pix.expiraEm) : null;
+        if (expira && !isNaN(expira)) {
+          var el = document.getElementById('pix-expira');
+          var mesmoDia = expira.toDateString() === new Date().toDateString();
+          el.textContent = 'Este Pix vale até ' +
+            (mesmoDia ? '' : expira.toLocaleDateString('pt-BR') + ' às ') +
+            expira.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '.';
+          el.hidden = false;
+        } else {
+          expira = null;
+        }
+
         showDone();
-        waitForPayment(d.pedido);
+        waitForPayment(d.pedido, expira);
       }
 
       // Pergunta ao NOSSO servidor (que recebe o webhook) se o pedido já foi pago.
       // A SigiloPay bloqueia consultas repetidas direto na API dela.
-      function waitForPayment(id) {
-        var started = Date.now();
+      function waitForPayment(id, expira) {
+        // Consulta até o Pix vencer (+2 min de folga) ou, sem validade informada, por 30 min
+        var limite = expira ? expira.getTime() + 2 * 60 * 1000 : Date.now() + 30 * 60 * 1000;
         function tick() {
-          if (Date.now() - started > 30 * 60 * 1000) {
-            setPayStatus('Não recebemos a confirmação ainda. Se você já pagou, não se preocupe: avisaremos por e-mail.', false);
+          if (Date.now() > limite) {
+            setPayStatus('Não recebemos a confirmação a tempo. Se você já pagou, não se preocupe: vamos conferir e falar com você.', false);
             return;
           }
           fetch('/api/pedido/' + encodeURIComponent(id), { cache: 'no-store' })
             .then(function (r) { return r.json(); })
             .then(function (s) {
               if (s.status === 'PAGO') paid();
-              else if (s.status === 'FALHOU') setPayStatus('Este Pix expirou ou foi cancelado. Volte à loja para gerar um novo.', false);
+              else if (s.status === 'CANCELADO') setPayStatus('Este Pix foi cancelado ou expirou. Volte à loja para gerar um novo.', false);
               else setTimeout(tick, 5000);
             })
             .catch(function () { setTimeout(tick, 8000); });
