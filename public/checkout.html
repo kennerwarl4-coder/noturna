@@ -296,6 +296,15 @@
     .pix-code-field { width: 100%; max-width: 420px; text-align: left; }
     .pix-code-field input { font-size: .8125rem; color: var(--muted); text-overflow: ellipsis; }
 
+    /* Status do pagamento */
+    .pay-status { display: inline-flex; align-items: center; gap: 10px; font-size: .9375rem; font-weight: 600; }
+    .spinner {
+      width: 16px; height: 16px; flex: none;
+      border: 2px solid var(--color-champagne); border-top-color: var(--fg); border-radius: 50%;
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--color-champagne); } }
     .pay-error { margin-top: -4px; }
     .btn:disabled { opacity: .7; cursor: wait; }
     .btn:disabled:hover { background: var(--fg); color: var(--color-white); }
@@ -497,7 +506,10 @@
             </div>
             <button class="btn" type="button" id="copy-pix">Copiar código Pix</button>
             <p class="field-hint" id="copy-msg" role="status" aria-live="polite"></p>
-            <p class="field-hint">Depois de pagar, pode fechar esta página: seu pedido já está com a gente.</p>
+            <p class="pay-status" id="pay-status" role="status" aria-live="polite">
+              <span class="spinner" aria-hidden="true"></span><span>Aguardando pagamento…</span>
+            </p>
+            <p class="field-hint">Esta tela muda sozinha assim que o pagamento for confirmado.</p>
           </div>
 
           <ol class="done-steps" id="done-steps">
@@ -782,19 +794,41 @@
       });
 
       // ---------------------------------------------------------
-      // Confirmação: cria a cobrança Pix no servidor (server.js → SigiloPay)
+      // Confirmação: cria a cobrança Pix no servidor (lib/loja.js → SigiloPay)
+      //
+      // O número do pedido é gerado aqui e reenviado em toda tentativa: se a
+      // cliente clicar de novo ou a conexão cair, o servidor devolve o MESMO Pix
+      // em vez de criar outro. Só troca de número quando o servidor avisa que a
+      // cobrança anterior não ficou pendente (novoPedido: true).
       // ---------------------------------------------------------
       var pixCode = '';
       var payBtn = document.getElementById('pay-btn');
       var payErr = document.getElementById('pay-err');
       var ERRO_PADRAO = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.';
+      var CHAVE_SESSAO = 'noturna.pedido';
+      var pedidoId = novoPedidoId();
+      var enviando = false;
+
+      function novoPedidoId() {
+        var bytes = new Uint8Array(8);
+        crypto.getRandomValues(bytes);
+        return 'NOT-' + Array.prototype.map.call(bytes, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('').toUpperCase();
+      }
+
+      // sessionStorage guarda o pedido da aba: se o celular recarregar a página
+      // ao voltar do app do banco, o mesmo Pix aparece de novo
+      function lembrarPedido(id) { try { sessionStorage.setItem(CHAVE_SESSAO, id); } catch (_) {} }
+      function esquecerPedido() { try { sessionStorage.removeItem(CHAVE_SESSAO); } catch (_) {} }
+      function pedidoLembrado() { try { return sessionStorage.getItem(CHAVE_SESSAO); } catch (_) { return null; } }
 
       function confirmOrder() {
+        if (enviando) return;
         payErr.textContent = '';
         if (location.protocol === 'file:') {
           payErr.textContent = 'Para gerar o Pix, abra a loja pelo servidor (npm start) e não pelo arquivo direto.';
           return;
         }
+        enviando = true;
         payBtn.disabled = true;
         payBtn.textContent = 'Gerando seu Pix…';
 
@@ -802,6 +836,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            pedido: pedidoId,
             qtd: qty,
             cliente: { nome: val('nome'), email: val('email'), whats: val('whats'), cpf: val('cpf') },
             entrega: { cep: val('cep'), rua: val('rua'), numero: val('numero'), comp: val('comp'), bairro: val('bairro'), cidade: val('cidade'), uf: val('uf') }
@@ -809,16 +844,26 @@
         })
           .then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (d) {
-              if (!r.ok || !d.pix) throw new Error(d.erro || ERRO_PADRAO);
-              return d;
+              if (d.status === 'PAGO') return irParaObrigado(d.pedido);
+              if (!r.ok || !d.pix) {
+                if (d.novoPedido) pedidoId = novoPedidoId();
+                throw new Error(d.erro || ERRO_PADRAO);
+              }
+              lembrarPedido(d.pedido);
+              showPix(d);
             });
           })
-          .then(showPix)
           .catch(function (e) {
             payErr.textContent = e instanceof TypeError ? 'Sem conexão com a loja. Confira sua internet e tente de novo.' : e.message;
+            enviando = false;
             payBtn.disabled = false;
             payBtn.textContent = 'Confirmar pedido';
           });
+      }
+
+      function irParaObrigado(id) {
+        esquecerPedido();
+        window.location.replace('obrigado.html?pedido=' + encodeURIComponent(id));
       }
 
       function showPix(d) {
@@ -840,17 +885,60 @@
           expira = null;
         }
 
-        showDone();
+        showDone(d.primeiroNome);
+        aguardarPagamento(d.pedido, expira);
       }
 
-      // Sem banco de dados, a página não acompanha o pagamento: a confirmação
-      // chega à loja pelo webhook/painel da SigiloPay.
+      // ---------------------------------------------------------
+      // Acompanha o pagamento: pergunta ao NOSSO servidor (atualizado pelo
+      // webhook da SigiloPay) a cada 4 s. Consultar a SigiloPay direto em
+      // loop é bloqueado por ela.
+      // ---------------------------------------------------------
+      function aguardarPagamento(id, expira) {
+        // Até o Pix vencer (+5 min de folga para o aviso chegar); sem validade, 1 hora
+        var limite = expira ? expira.getTime() + 5 * 60 * 1000 : Date.now() + 60 * 60 * 1000;
+        var falhas = 0;
 
-      function showDone() {
+        function consultar() {
+          if (Date.now() > limite) {
+            setPayStatus('Este Pix venceu. Se você já pagou, fale com a gente pelo WhatsApp com o número do pedido: ' + id + '.', false);
+            esquecerPedido();
+            return;
+          }
+          fetch('/api/pedido/' + encodeURIComponent(id), { cache: 'no-store' })
+            .then(function (r) {
+              if (r.status === 404) throw { fim: true };
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              return r.json();
+            })
+            .then(function (s) {
+              falhas = 0;
+              if (s.status === 'PAGO') return irParaObrigado(id);
+              if (s.status === 'PENDENTE') return setTimeout(consultar, 4000);
+              esquecerPedido();
+              setPayStatus('Este Pix foi cancelado. Volte à loja para fazer um novo pedido.', false);
+            })
+            .catch(function (e) {
+              if (e && e.fim) { esquecerPedido(); setPayStatus('Não encontramos este pedido. Volte à loja para fazer um novo.', false); return; }
+              // Sem internet ou servidor instável: continua tentando, mais devagar
+              falhas++;
+              setTimeout(consultar, Math.min(4000 * (falhas + 1), 20000));
+            });
+        }
+        setTimeout(consultar, 4000);
+      }
+
+      function setPayStatus(text, carregando) {
+        var el = document.getElementById('pay-status');
+        el.querySelector('.spinner').hidden = !carregando;
+        el.lastElementChild.textContent = text;
+      }
+
+      function showDone(primeiroNome) {
         document.getElementById('steps').hidden = true;
         document.querySelector('.stepper').hidden = true;
         document.getElementById('co-title').textContent = 'Pedido recebido';
-        fill('[data-first-name]', val('nome').split(/\s+/)[0]);
+        fill('[data-first-name]', primeiroNome || val('nome').split(/\s+/)[0]);
         var done = document.getElementById('done');
         done.hidden = false;
         document.getElementById('done-title').focus({ preventScroll: true });
@@ -869,6 +957,27 @@
           input.select(); document.execCommand('copy'); done();
         }
       });
+
+      // ---------------------------------------------------------
+      // Página recarregada no meio do pagamento: retoma o mesmo Pix
+      // ---------------------------------------------------------
+      var lembrado = pedidoLembrado();
+      if (lembrado && /^NOT-[A-F0-9]{16}$/.test(lembrado) && location.protocol !== 'file:') {
+        fetch('/api/pedido/' + encodeURIComponent(lembrado), { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (!d) return esquecerPedido();
+            if (d.status === 'PAGO') return irParaObrigado(d.pedido);
+            if (d.status === 'PENDENTE' && d.pix) {
+              pedidoId = d.pedido;
+              enviando = true;
+              showPix(d);
+            } else {
+              esquecerPedido();
+            }
+          })
+          .catch(function () { /* sem conexão: a cliente segue o checkout normal */ });
+      }
     })();
   </script>
 </body>

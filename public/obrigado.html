@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Obrigada pelo pedido | Noturna</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#222222">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&display=swap" rel="stylesheet">
+
+  <!--
+    PÁGINA DE OBRIGADO
+    Aberta pelo checkout quando o pagamento é confirmado (obrigado.html?pedido=NOT-...).
+    Confere o status no servidor antes de agradecer: se o Pix ainda não caiu,
+    mostra "confirmando" e continua consultando.
+  -->
+
+  <style>
+    :root {
+      --color-black: #222222;
+      --color-white: #FFFFFF;
+      --color-champagne: #D9C4A3;
+      --color-cream: #F4EEE6;
+      --gray-text: #595959;
+      --gray-line: #E3DACD;
+      --color-success: #1A7F37;
+
+      --bg: var(--color-cream);
+      --fg: var(--color-black);
+      --muted: var(--gray-text);
+      --line: var(--gray-line);
+
+      --font-brand: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --radius: 20px;
+      --radius-pill: 999px;
+      --gutter: 16px;
+    }
+    @media (min-width: 768px) { :root { --gutter: 32px; } }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-brand); line-height: 1.5; overflow-x: clip; }
+    h1, h2, p, ol, dl, dd { margin: 0; }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-underline-offset: 3px; }
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; border-radius: 6px; }
+    [tabindex="-1"]:focus { outline: none; }
+    .container { width: 100%; max-width: 640px; margin-inline: auto; padding-inline: var(--gutter); }
+
+    .co-header { background: var(--color-white); border-bottom: 1px solid var(--line); }
+    .co-header .inner { display: flex; align-items: center; justify-content: space-between; height: 64px; max-width: 1080px; margin-inline: auto; padding-inline: var(--gutter); }
+    .co-header .logo img { height: 28px; width: auto; }
+    .secure { display: inline-flex; align-items: center; gap: 6px; color: var(--color-success); font-size: .875rem; font-weight: 600; }
+    .secure svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    main { padding-block: 40px 64px; }
+    .card {
+      background: var(--color-white); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: clamp(24px, 6vw, 44px); text-align: center;
+    }
+    .icon { width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 50%; background: var(--color-champagne); display: grid; place-items: center; }
+    .icon svg { width: 30px; height: 30px; fill: none; stroke: var(--fg); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .spinner {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 3px solid var(--color-cream); border-top-color: var(--fg);
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--color-champagne); } }
+
+    h1 { font-size: clamp(1.625rem, 1.2rem + 1.8vw, 2.125rem); letter-spacing: -0.02em; line-height: 1.15; }
+    .lede { margin-top: 10px; color: var(--muted); font-size: 1.0625rem; }
+
+    .resumo {
+      display: grid; gap: 10px; margin-top: 28px; padding: 20px;
+      background: var(--color-cream); border-radius: 14px; text-align: left; font-size: .9375rem;
+    }
+    .resumo div { display: flex; justify-content: space-between; gap: 12px; }
+    .resumo dt { color: var(--muted); }
+    .resumo dd { font-weight: 600; text-align: right; }
+
+    .proximos { margin-top: 28px; text-align: left; }
+    .proximos h2 { font-size: 1.0625rem; margin-bottom: 12px; }
+    .proximos ol { display: grid; gap: 10px; padding-left: 20px; color: var(--muted); }
+    .proximos strong { color: var(--fg); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 100%; max-width: 320px; min-height: 52px; margin-top: 28px; padding: 0 24px;
+      background: var(--fg); color: var(--color-white);
+      border: 1.5px solid var(--fg); border-radius: var(--radius-pill);
+      font-weight: 600; text-decoration: none;
+      transition: background-color .2s, color .2s;
+    }
+    .btn:hover { background: var(--color-white); color: var(--fg); }
+    .btn:focus-visible { border-radius: var(--radius-pill); }
+
+    .co-footer { border-top: 1px solid var(--line); padding-block: 24px 32px; font-size: .75rem; color: var(--muted); text-align: center; }
+  </style>
+</head>
+
+<body>
+  <header class="co-header">
+    <div class="inner">
+      <a class="logo" href="index.html" aria-label="Noturna, voltar para a loja">
+        <img src="assets/logo-noturna.png" alt="Noturna" width="1428" height="350">
+      </a>
+      <span class="secure">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        Ambiente seguro
+      </span>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Carregando / aguardando confirmação -->
+    <section class="card" id="estado-aguardando" aria-labelledby="t-aguardando">
+      <div class="icon"><div class="spinner" aria-hidden="true"></div></div>
+      <h1 id="t-aguardando" tabindex="-1">Confirmando seu pagamento…</h1>
+      <p class="lede" id="aguardando-texto" role="status" aria-live="polite">Isso leva só alguns segundos.</p>
+    </section>
+
+    <!-- Pago -->
+    <section class="card" id="estado-pago" hidden aria-labelledby="t-pago">
+      <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <h1 id="t-pago" tabindex="-1">Obrigada, <span data-nome></span>!</h1>
+      <p class="lede">Pagamento confirmado. Seu ritual da noite já está sendo preparado.</p>
+
+      <dl class="resumo">
+        <div><dt>Pedido</dt><dd data-pedido></dd></div>
+        <div><dt>Produto</dt><dd><span data-qtd></span></dd></div>
+        <div><dt>Total pago no Pix</dt><dd data-total></dd></div>
+        <div><dt>Frete</dt><dd>Grátis</dd></div>
+      </dl>
+
+      <div class="proximos">
+        <h2>E agora?</h2>
+        <ol>
+          <li><strong>Separação:</strong> seu kit é embalado e sai em até 2 dias úteis.</li>
+          <li><strong>Envio:</strong> você recebe o código de rastreio assim que ele for postado.</li>
+          <li><strong>Chegou?</strong> Escaneie o QR code do cartão do ritual e comece hoje à noite.</li>
+        </ol>
+      </div>
+
+      <a class="btn" href="index.html">Voltar para a loja</a>
+    </section>
+
+    <!-- Pedido não encontrado / cancelado -->
+    <section class="card" id="estado-erro" hidden aria-labelledby="t-erro">
+      <h1 id="t-erro" tabindex="-1">Não encontramos este pedido</h1>
+      <p class="lede" id="erro-texto">Confira o link ou volte à loja para fazer um novo pedido.</p>
+      <a class="btn" href="index.html">Voltar para a loja</a>
+    </section>
+  </main>
+
+  <footer class="co-footer">
+    <p>Noturna &amp; Cachos LTDA · CNPJ 48.273.423/0001-01 · Curitiba - PR</p>
+  </footer>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+      var id = new URLSearchParams(location.search).get('pedido') || '';
+      var estados = ['aguardando', 'pago', 'erro'];
+
+      function mostrar(nome) {
+        estados.forEach(function (e) { document.getElementById('estado-' + e).hidden = e !== nome; });
+        var titulo = document.querySelector('#estado-' + nome + ' h1');
+        if (titulo) titulo.focus({ preventScroll: true });
+      }
+      function fill(sel, texto) {
+        document.querySelectorAll(sel).forEach(function (el) { el.textContent = texto; });
+      }
+
+      function pago(d) {
+        fill('[data-nome]', d.primeiroNome);
+        fill('[data-pedido]', d.pedido);
+        fill('[data-qtd]', (d.qtd > 1 ? d.qtd + '× ' : '') + 'Kit Ritual da Noite');
+        fill('[data-total]', brl.format(d.total));
+        try { sessionStorage.removeItem('noturna.pedido'); } catch (_) {}
+        mostrar('pago');
+      }
+
+      function erro(texto) {
+        if (texto) document.getElementById('erro-texto').textContent = texto;
+        mostrar('erro');
+      }
+
+      if (!/^NOT-[A-F0-9]{16}$/.test(id)) return erro();
+
+      // Confere no servidor antes de agradecer. Se o aviso de pagamento ainda
+      // não chegou, continua consultando por até 10 minutos.
+      var limite = Date.now() + 10 * 60 * 1000;
+      var falhas = 0;
+      function consultar() {
+        fetch('/api/pedido/' + encodeURIComponent(id), { cache: 'no-store' })
+          .then(function (r) {
+            if (r.status === 404) throw { fim: true };
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (d) {
+            falhas = 0;
+            if (d.status === 'PAGO') return pago(d);
+            if (d.status !== 'PENDENTE') return erro('Este pedido foi cancelado ou estornado. Se tiver dúvidas, fale com a gente pelo WhatsApp informando o número ' + id + '.');
+            if (Date.now() > limite) {
+              document.getElementById('aguardando-texto').textContent =
+                'Ainda não recebemos a confirmação do banco. Se você já pagou, fale com a gente pelo WhatsApp informando o número ' + id + '.';
+              return;
+            }
+            document.getElementById('aguardando-texto').textContent = 'Aguardando a confirmação do banco…';
+            setTimeout(consultar, 4000);
+          })
+          .catch(function (e) {
+            if (e && e.fim) return erro();
+            falhas++;
+            setTimeout(consultar, Math.min(4000 * (falhas + 1), 20000));
+          });
+      }
+      consultar();
+    })();
+  </script>
+</body>
+</html>
