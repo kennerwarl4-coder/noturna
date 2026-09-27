@@ -296,15 +296,6 @@
     .pix-code-field { width: 100%; max-width: 420px; text-align: left; }
     .pix-code-field input { font-size: .8125rem; color: var(--muted); text-overflow: ellipsis; }
 
-    /* Status do pagamento */
-    .pay-status { display: inline-flex; align-items: center; gap: 10px; font-size: .9375rem; font-weight: 600; }
-    .spinner {
-      width: 16px; height: 16px; flex: none;
-      border: 2px solid var(--color-champagne); border-top-color: var(--fg); border-radius: 50%;
-      animation: spin .9s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--color-champagne); } }
     .pay-error { margin-top: -4px; }
     .btn:disabled { opacity: .7; cursor: wait; }
     .btn:disabled:hover { background: var(--fg); color: var(--color-white); }
@@ -493,7 +484,7 @@
         <section class="done" id="done" hidden aria-labelledby="done-title">
           <div class="done-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
           <h2 id="done-title" tabindex="-1">Tudo certo, <span data-first-name></span>!</h2>
-          <p id="done-lede">Agora é só pagar o Pix para confirmar. Os detalhes também vão para <strong data-done-email></strong>.</p>
+          <p id="done-lede">Agora é só pagar o Pix para confirmar seu pedido.</p>
 
           <!-- QR Code e copia e cola gerados pela SigiloPay (via server.js) -->
           <div class="pix-box" id="pix-box">
@@ -506,7 +497,7 @@
             </div>
             <button class="btn" type="button" id="copy-pix">Copiar código Pix</button>
             <p class="field-hint" id="copy-msg" role="status" aria-live="polite"></p>
-            <p class="pay-status" id="pay-status" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><span>Aguardando pagamento…</span></p>
+            <p class="field-hint">Depois de pagar, pode fechar esta página: seu pedido já está com a gente.</p>
           </div>
 
           <ol class="done-steps" id="done-steps">
@@ -850,53 +841,16 @@
         }
 
         showDone();
-        waitForPayment(d.pedido, expira);
       }
 
-      // Pergunta ao NOSSO servidor (que recebe o webhook) se o pedido já foi pago.
-      // A SigiloPay bloqueia consultas repetidas direto na API dela.
-      function waitForPayment(id, expira) {
-        // Consulta até o Pix vencer (+2 min de folga) ou, sem validade informada, por 30 min
-        var limite = expira ? expira.getTime() + 2 * 60 * 1000 : Date.now() + 30 * 60 * 1000;
-        function tick() {
-          if (Date.now() > limite) {
-            setPayStatus('Não recebemos a confirmação a tempo. Se você já pagou, não se preocupe: vamos conferir e falar com você.', false);
-            return;
-          }
-          fetch('/api/pedido/' + encodeURIComponent(id), { cache: 'no-store' })
-            .then(function (r) { return r.json(); })
-            .then(function (s) {
-              if (s.status === 'PAGO') paid();
-              else if (s.status === 'CANCELADO') setPayStatus('Este Pix foi cancelado ou expirou. Volte à loja para gerar um novo.', false);
-              else setTimeout(tick, 5000);
-            })
-            .catch(function () { setTimeout(tick, 8000); });
-        }
-        setTimeout(tick, 5000);
-      }
-
-      function setPayStatus(text, loading) {
-        var el = document.getElementById('pay-status');
-        el.querySelector('.spinner').hidden = !loading;
-        el.lastElementChild.textContent = text;
-      }
-
-      function paid() {
-        var first = val('nome').split(/\s+/)[0];
-        document.getElementById('co-title').textContent = 'Pagamento confirmado';
-        document.getElementById('done-title').textContent = 'Pagamento confirmado, ' + first + '!';
-        document.getElementById('done-lede').textContent = 'Seu Kit Ritual da Noite já está sendo preparado e sai em até 2 dias úteis. O código de rastreio vai para o seu e-mail.';
-        document.getElementById('pix-box').hidden = true;
-        document.getElementById('done-steps').hidden = true;
-        document.getElementById('done-title').focus({ preventScroll: true });
-      }
+      // Sem banco de dados, a página não acompanha o pagamento: a confirmação
+      // chega à loja pelo webhook/painel da SigiloPay.
 
       function showDone() {
         document.getElementById('steps').hidden = true;
         document.querySelector('.stepper').hidden = true;
         document.getElementById('co-title').textContent = 'Pedido recebido';
         fill('[data-first-name]', val('nome').split(/\s+/)[0]);
-        fill('[data-done-email]', val('email'));
         var done = document.getElementById('done');
         done.hidden = false;
         document.getElementById('done-title').focus({ preventScroll: true });

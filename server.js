@@ -10,8 +10,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { handler, criarPix, receberWebhook, statusPedido, config, WEBHOOK_PATH } = require('./lib/loja');
-const { usaRedis } = require('./lib/store');
+const { handler, criarPix, receberWebhook, config, WEBHOOK_PATH } = require('./lib/loja');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -19,8 +18,8 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const rotas = {
   '/api/pix': handler('POST', criarPix),
   [WEBHOOK_PATH]: handler('POST', receberWebhook),
+  '/api/status': require('./api/status'),
 };
-const rotaPedido = handler('GET', statusPedido);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -65,16 +64,12 @@ function servirArquivo(res, pathname) {
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  const { pathname } = new URL(req.url, 'http://localhost');
+  const { pathname, searchParams } = new URL(req.url, 'http://localhost');
 
   if (rotas[pathname]) {
+    req.query = Object.fromEntries(searchParams); // a Vercel entrega isso pronto
     if (req.method === 'POST') req.body = await lerCorpo(req);
     return rotas[pathname](req, res);
-  }
-  const m = pathname.match(/^\/api\/pedido\/([^/]+)$/);
-  if (m) {
-    req.query = { id: m[1] };
-    return rotaPedido(req, res);
   }
   if (pathname.startsWith('/api/')) {
     res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -87,7 +82,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   const { publicKey, secretKey, publicUrl } = config();
   console.log(`Noturna rodando em http://localhost:${PORT}`);
-  console.log(`Pedidos salvos em: ${usaRedis ? 'Upstash Redis' : 'data/pedidos.json'}`);
   if (!publicKey || !secretKey) console.warn('⚠ Chaves da SigiloPay ausentes no .env: o Pix não será gerado.');
   if (!publicUrl) console.warn('⚠ PUBLIC_URL ausente no .env: a SigiloPay não terá para onde mandar o webhook.');
   else if (!publicUrl.startsWith('https://')) console.warn('⚠ PUBLIC_URL deve ser https:// e acessível pela internet.');
